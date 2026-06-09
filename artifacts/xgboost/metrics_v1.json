@@ -1,0 +1,21 @@
+{
+  "test_auc": 1.0,
+  "test_pr_auc": 1.0,
+  "test_f1_binary": 1.0,
+  "test_f1_macro": 1.0,
+  "test_precision": 1.0,
+  "test_recall": 1.0,
+  "test_fp_rate": 0.0,
+  "test_brier": 0.0,
+  "test_ece": 0.0,
+  "test_tp": 1503.0,
+  "test_fp": 0.0,
+  "test_fn": 0.0,
+  "test_tn": 8497.0,
+  "train_rows": 80000,
+  "val_rows": 10000,
+  "test_rows": 10000,
+  "train_fraud_rate": 0.151125,
+  "val_fraud_rate": 0.146,
+  "test_fraud_rate": 0.1503
+}

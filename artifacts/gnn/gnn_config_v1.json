@@ -1,0 +1,24 @@
+{
+  "input_dim": 17,
+  "hidden_dim": 64,
+  "dropout": 0.25,
+  "feature_columns": [
+    "account_age_days",
+    "kyc_tier",
+    "account_type",
+    "relationship_years",
+    "lifetime_tx_count",
+    "lifetime_amount_log",
+    "prior_sar_count",
+    "prior_alert_count",
+    "prior_confirmed_fraud",
+    "monthly_avg_tx_count",
+    "monthly_avg_amount_log",
+    "geographic_risk_score",
+    "pep_flag",
+    "industry_risk_score",
+    "distinct_devices_90d",
+    "avg_failed_auth_monthly",
+    "is_new_account"
+  ]
+}

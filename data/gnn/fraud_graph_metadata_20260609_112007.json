@@ -1,0 +1,68 @@
+{
+  "run_id": "20260609_112007",
+  "created_at_utc": "2026-06-09T11:21:08.497645+00:00",
+  "config": {
+    "source_transaction_csv": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\xgboost\\xgboost_base_data.csv",
+    "output_dir": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn",
+    "dataset_name": "fraud_graph",
+    "seed": 42,
+    "max_shared_entity_edges": 500000
+  },
+  "source_transaction_csv": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\xgboost\\xgboost_base_data.csv",
+  "counts": {
+    "transactions": 100000,
+    "account_nodes": 56285,
+    "device_nodes": 19849,
+    "ip_nodes": 99912,
+    "merchant_nodes": 10,
+    "account_account_edges": 99994,
+    "derived_account_edges": 80730
+  },
+  "files": {
+    "account_nodes": {
+      "csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_account_nodes_20260609_112007.csv",
+      "latest_csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_account_nodes.csv",
+      "rows": 56285
+    },
+    "device_nodes": {
+      "csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_device_nodes_20260609_112007.csv",
+      "latest_csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_device_nodes.csv",
+      "rows": 19849
+    },
+    "ip_nodes": {
+      "csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_ip_nodes_20260609_112007.csv",
+      "latest_csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_ip_nodes.csv",
+      "rows": 99912
+    },
+    "merchant_nodes": {
+      "csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_merchant_nodes_20260609_112007.csv",
+      "latest_csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_merchant_nodes.csv",
+      "rows": 10
+    },
+    "account_account_edges": {
+      "csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_edges_account_account_20260609_112007.csv",
+      "latest_csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_edges_account_account.csv",
+      "rows": 99994
+    },
+    "account_device_edges": {
+      "csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_edges_account_device_20260609_112007.csv",
+      "latest_csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_edges_account_device.csv",
+      "rows": 99989
+    },
+    "account_ip_edges": {
+      "csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_edges_account_ip_20260609_112007.csv",
+      "latest_csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_edges_account_ip.csv",
+      "rows": 99912
+    },
+    "account_merchant_edges": {
+      "csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_edges_account_merchant_20260609_112007.csv",
+      "latest_csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_edges_account_merchant.csv",
+      "rows": 82494
+    },
+    "derived_account_edges": {
+      "csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_edges_account_shared_entity_20260609_112007.csv",
+      "latest_csv_path": "C:\\Users\\Dipjyoti\\Downloads\\Hackathon\\fraud_xgboost_gnn_fastapi_project_single_requirements\\fraud_xgboost_fastapi_project\\data\\gnn\\fraud_graph_edges_account_shared_entity.csv",
+      "rows": 80730
+    }
+  }
+}
