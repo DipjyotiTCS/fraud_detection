@@ -1,0 +1,29 @@
+======================================================================
+  FRAUDSENTINEL — TEST DATASET AUDIT REPORT
+======================================================================
+  Tokenizer : Character estimate (÷3.8)
+  Max tokens: 2048
+
+  Task                           Total   Valid  Dropped  Drop%  Mean tok  >2048%  >4096%
+  --------------------------------------------------------------------
+  risk_rationale                80,000  80,000        0   0.0%       912    0.0%    0.0%
+  fraud_classification          25,348  25,348        0   0.0%       616    0.0%    0.0%
+  typology_matching              1,870   1,870        0   0.0%       559    0.0%    0.0%
+  sar_narrative                 25,000  25,000        0   0.0%       968    0.0%    0.0%
+  next_best_action              60,000  60,000        0   0.0%       848    0.0%    0.0%
+
+  FINAL SPLIT
+  ----------------------------------------
+  Task                           Train     Val
+  ----------------------------------------
+  risk_rationale                 1,530     170
+  fraud_classification           1,530     170
+  typology_matching              1,530     170
+  sar_narrative                  1,530     170
+  next_best_action               1,530     170
+  ----------------------------------------
+  TOTAL                          7,650     850
+
+  Train file: sft_test_dataset/train.jsonl
+  Val file  : sft_test_dataset/val.jsonl
+======================================================================

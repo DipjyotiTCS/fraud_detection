@@ -13,10 +13,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api_models import (
     DatasetGenerateRequest,
+    DownloadLLMBaseModelRequest,
     EnrichXGBoostWithGNNRequest,
+    FineTuneLLMRequest,
     GraphDatasetGenerateRequest,
     HybridPipelineRequest,
     InferGNNRequest,
+    LLMDatasetInspectRequest,
+    RiskReportInferenceRequest,
     ScoreRequest,
     TrainGNNRequest,
     TrainXGBoostRequest,
@@ -25,6 +29,10 @@ from fraud_ml.gnn.graph_dataset_builder import GraphDatasetBuildConfig, GraphDat
 from fraud_ml.gnn.graph_feature_injection import GNNScoreInjectionConfig, GNNScoreInjector
 from fraud_ml.gnn.graph_inference import GNNInferConfig, GNNInferenceService
 from fraud_ml.gnn.graph_trainer import GNNTrainConfig, GNNTrainingService
+from fraud_ml.llm.finetune import LLMFineTuneConfig, LLMFineTuningService
+from fraud_ml.llm.inference import RiskReportInferenceConfig, RiskReportInferenceService
+from fraud_ml.llm.model_download import LLMDownloadConfig, LLMModelDownloader
+from fraud_ml.llm.dataset_utils import inspect_dataset_folder
 from fraud_ml.xgboost.dataset_builder import DatasetBuildConfig, XGBoostDatasetBuilder
 from fraud_ml.xgboost.inference import XGBoostInferenceService
 from fraud_ml.xgboost.trainer import XGBoostTrainingService
@@ -38,7 +46,7 @@ JOBS: Dict[str, Dict[str, Any]] = {}
 app = FastAPI(
     title="FraudSentinel Hybrid Fraud ML API",
     version="2.0.0",
-    description="Generate fraud datasets, train GNN/GraphSAGE account models, train XGBoost transaction models, and score transactions.",
+    description="Generate fraud datasets, train GNN/GraphSAGE and XGBoost models, fine-tune a Mistral risk-report LLM, and score/report transactions.",
 )
 
 app.add_middleware(
@@ -312,6 +320,123 @@ def train_hybrid_pipeline(request: HybridPipelineRequest, background_tasks: Back
         raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
 
 
+@app.post("/api/llm/download-base")
+def download_llm_base_model(request: DownloadLLMBaseModelRequest, background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """Download the source/base Mistral model snapshot into artifacts/llm/base."""
+    config = LLMDownloadConfig(
+        model_id=request.model_id,
+        output_dir=_resolve_path(request.output_dir),
+        revision=request.revision,
+        allow_patterns=request.allow_patterns,
+        ignore_patterns=request.ignore_patterns,
+    )
+
+    def _run() -> Dict[str, Any]:
+        return LLMModelDownloader(config).download()
+
+    if request.async_mode:
+        return _run_async("llm_base_download", _run, background_tasks)
+    try:
+        return {"status": "completed", "result": _run()}
+    except Exception as exc:
+        logger.exception("LLM base model download failed")
+        raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
+
+
+@app.post("/api/llm/datasets/inspect")
+def inspect_llm_dataset(request: LLMDatasetInspectRequest) -> Dict[str, Any]:
+    """Validate SFT/DPO dataset schema and show the automatic train/validation/test split."""
+    try:
+        result = inspect_dataset_folder(
+            _resolve_path(request.dataset_dir),
+            dataset_type=request.dataset_type,
+            validation_ratio=request.validation_ratio,
+            test_ratio=request.test_ratio,
+            seed=request.seed,
+        )
+        return {"status": "completed", "result": result}
+    except Exception as exc:
+        logger.exception("LLM dataset inspection failed")
+        raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
+
+
+@app.post("/api/llm/finetune")
+def fine_tune_llm(request: FineTuneLLMRequest, background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """Fine-tune the downloaded Mistral model using SFT data and optional DPO preference data."""
+    config = LLMFineTuneConfig(
+        base_model_path=_resolve_path(request.base_model_path),
+        output_dir=_resolve_path(request.output_dir),
+        sft_dataset_dir=_resolve_path(request.sft_dataset_dir),
+        dpo_dataset_dir=_resolve_path(request.dpo_dataset_dir),
+        run_sft=request.run_sft,
+        run_dpo=request.run_dpo,
+        use_4bit=request.use_4bit,
+        max_seq_length=request.max_seq_length,
+        sft_epochs=request.sft_epochs,
+        dpo_epochs=request.dpo_epochs,
+        per_device_train_batch_size=request.per_device_train_batch_size,
+        gradient_accumulation_steps=request.gradient_accumulation_steps,
+        learning_rate=request.learning_rate,
+        dpo_learning_rate=request.dpo_learning_rate,
+        logging_steps=request.logging_steps,
+        save_steps=request.save_steps,
+        save_total_limit=request.save_total_limit,
+        seed=request.seed,
+        validation_ratio=request.validation_ratio,
+        test_ratio=request.test_ratio,
+        lora_r=request.lora_r,
+        lora_alpha=request.lora_alpha,
+        lora_dropout=request.lora_dropout,
+        lora_target_modules=request.lora_target_modules,
+        resume_from_checkpoint=_resolve_path(request.resume_from_checkpoint) if request.resume_from_checkpoint else None,
+    )
+
+    def _run() -> Dict[str, Any]:
+        return LLMFineTuningService(config).train()
+
+    if request.async_mode:
+        return _run_async("llm_fine_tuning", _run, background_tasks)
+    try:
+        return {"status": "completed", "result": _run()}
+    except Exception as exc:
+        logger.exception("LLM fine-tuning failed")
+        raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
+
+
+@app.post("/api/llm/infer-risk-report")
+def infer_risk_report(request: RiskReportInferenceRequest) -> Dict[str, Any]:
+    """Generate a risk assessment report from GNN+XGBoost classification output."""
+    config = RiskReportInferenceConfig(
+        base_model_path=_resolve_path(request.base_model_path),
+        adapter_path=_resolve_path(request.adapter_path),
+        use_4bit=request.use_4bit,
+        max_new_tokens=request.max_new_tokens,
+        temperature=request.temperature,
+        top_p=request.top_p,
+    )
+    try:
+        return RiskReportInferenceService(config).generate_report(
+            transaction=request.transaction,
+            classification_result=request.classification_result,
+            customer_context=request.customer_context,
+            report_instruction=request.report_instruction,
+        )
+    except Exception as exc:
+        logger.exception("LLM risk report inference failed")
+        raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
+
+
+@app.get("/api/llm/artifacts")
+def list_llm_artifacts() -> Dict[str, Any]:
+    paths = {
+        "base_models": APP_ROOT / "artifacts" / "llm" / "base",
+        "fine_tuned_models": APP_ROOT / "artifacts" / "llm" / "finetuned",
+        "sft_datasets": APP_ROOT / "data" / "llm" / "sft",
+        "dpo_datasets": APP_ROOT / "data" / "llm" / "dpo",
+    }
+    return {name: [str(p) for p in sorted(path.rglob("*")) if p.is_file()] if path.exists() else [] for name, path in paths.items()}
+
+
 @app.get("/api/jobs/{job_id}")
 def get_job(job_id: str) -> Dict[str, Any]:
     if job_id not in JOBS:
@@ -324,8 +449,12 @@ def list_artifacts() -> Dict[str, Any]:
     paths = {
         "xgboost_data_files": APP_ROOT / "data" / "xgboost",
         "gnn_data_files": APP_ROOT / "data" / "gnn",
+        "llm_sft_datasets": APP_ROOT / "data" / "llm" / "sft",
+        "llm_dpo_datasets": APP_ROOT / "data" / "llm" / "dpo",
         "xgboost_model_artifacts": APP_ROOT / "artifacts" / "xgboost",
         "gnn_model_artifacts": APP_ROOT / "artifacts" / "gnn",
+        "llm_base_artifacts": APP_ROOT / "artifacts" / "llm" / "base",
+        "llm_finetuned_artifacts": APP_ROOT / "artifacts" / "llm" / "finetuned",
     }
     return {name: [str(p) for p in sorted(path.glob("*"))] if path.exists() else [] for name, path in paths.items()}
 
