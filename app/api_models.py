@@ -131,14 +131,6 @@ class HybridPipelineRequest(BaseModel):
 
 
 
-class LLMDatasetInspectRequest(BaseModel):
-    dataset_dir: str = Field(default_factory=lambda: _env_str("LLM_SFT_DATASET_DIR", "data/llm/sft"))
-    dataset_type: Literal["sft", "dpo"] = "sft"
-    validation_ratio: float = Field(default_factory=lambda: _env_float("LLM_VALIDATION_RATIO", 0.1), ge=0, le=0.49)
-    test_ratio: float = Field(default_factory=lambda: _env_float("LLM_TEST_RATIO", 0.1), ge=0, le=0.49)
-    seed: int = Field(default_factory=lambda: _env_int("LLM_SEED", 42))
-
-
 class DownloadLLMBaseModelRequest(BaseModel):
     model_id: str = Field(
         default_factory=lambda: _env_str("LLM_DEFAULT_MODEL_ID", "mistralai/Mistral-7B-Instruct-v0.3"),
@@ -173,8 +165,6 @@ class FineTuneLLMRequest(BaseModel):
     save_steps: int = Field(default_factory=lambda: _env_int("LLM_SAVE_STEPS", 100), ge=1, le=10000)
     save_total_limit: int = Field(default_factory=lambda: _env_int("LLM_SAVE_TOTAL_LIMIT", 2), ge=1, le=20)
     seed: int = Field(default_factory=lambda: _env_int("LLM_SEED", 42))
-    validation_ratio: float = Field(default_factory=lambda: _env_float("LLM_VALIDATION_RATIO", 0.1), ge=0, le=0.49)
-    test_ratio: float = Field(default_factory=lambda: _env_float("LLM_TEST_RATIO", 0.1), ge=0, le=0.49)
     lora_r: int = Field(default_factory=lambda: _env_int("LLM_LORA_R", 16), ge=1, le=256)
     lora_alpha: int = Field(default_factory=lambda: _env_int("LLM_LORA_ALPHA", 32), ge=1, le=512)
     lora_dropout: float = Field(default_factory=lambda: _env_float("LLM_LORA_DROPOUT", 0.05), ge=0, le=0.8)

@@ -52,8 +52,6 @@ DEFAULT_LLM_LOGGING_STEPS="${DEFAULT_LLM_LOGGING_STEPS:-5}"
 DEFAULT_LLM_SAVE_STEPS="${DEFAULT_LLM_SAVE_STEPS:-100}"
 DEFAULT_LLM_SAVE_TOTAL_LIMIT="${DEFAULT_LLM_SAVE_TOTAL_LIMIT:-2}"
 DEFAULT_LLM_SEED="${DEFAULT_LLM_SEED:-42}"
-DEFAULT_LLM_VALIDATION_RATIO="${DEFAULT_LLM_VALIDATION_RATIO:-0.1}"
-DEFAULT_LLM_TEST_RATIO="${DEFAULT_LLM_TEST_RATIO:-0.1}"
 DEFAULT_LLM_LORA_R="${DEFAULT_LLM_LORA_R:-16}"
 DEFAULT_LLM_LORA_ALPHA="${DEFAULT_LLM_LORA_ALPHA:-32}"
 DEFAULT_LLM_LORA_DROPOUT="${DEFAULT_LLM_LORA_DROPOUT:-0.05}"
@@ -158,8 +156,6 @@ upsert_env_property "LLM_LOGGING_STEPS" "$(value_or_default "${LLM_LOGGING_STEPS
 upsert_env_property "LLM_SAVE_STEPS" "$(value_or_default "${LLM_SAVE_STEPS:-}" "${DEFAULT_LLM_SAVE_STEPS}")" ".env"
 upsert_env_property "LLM_SAVE_TOTAL_LIMIT" "$(value_or_default "${LLM_SAVE_TOTAL_LIMIT:-}" "${DEFAULT_LLM_SAVE_TOTAL_LIMIT}")" ".env"
 upsert_env_property "LLM_SEED" "$(value_or_default "${LLM_SEED:-}" "${DEFAULT_LLM_SEED}")" ".env"
-upsert_env_property "LLM_VALIDATION_RATIO" "$(value_or_default "${LLM_VALIDATION_RATIO:-}" "${DEFAULT_LLM_VALIDATION_RATIO}")" ".env"
-upsert_env_property "LLM_TEST_RATIO" "$(value_or_default "${LLM_TEST_RATIO:-}" "${DEFAULT_LLM_TEST_RATIO}")" ".env"
 upsert_env_property "LLM_LORA_R" "$(value_or_default "${LLM_LORA_R:-}" "${DEFAULT_LLM_LORA_R}")" ".env"
 upsert_env_property "LLM_LORA_ALPHA" "$(value_or_default "${LLM_LORA_ALPHA:-}" "${DEFAULT_LLM_LORA_ALPHA}")" ".env"
 upsert_env_property "LLM_LORA_DROPOUT" "$(value_or_default "${LLM_LORA_DROPOUT:-}" "${DEFAULT_LLM_LORA_DROPOUT}")" ".env"
@@ -170,7 +166,7 @@ upsert_env_property "LLM_TOP_P" "$(value_or_default "${LLM_TOP_P:-}" "${DEFAULT_
 upsert_env_property "LLM_ASYNC_MODE" "$(value_or_default "${LLM_ASYNC_MODE:-}" "${DEFAULT_LLM_ASYNC_MODE}")" ".env"
 chmod 600 .env || true
 
-echo "[1/8] Checking Linux packages..."
+echo "[1/7] Checking Linux packages..."
 if command -v apt-get >/dev/null 2>&1; then
   sudo apt-get update
   sudo apt-get install -y python3 python3-venv python3-pip git git-lfs curl build-essential
@@ -179,28 +175,25 @@ else
   echo "apt-get not found. Install python3-venv, python3-pip, git, git-lfs, curl, and build-essential manually."
 fi
 
-echo "[2/8] Creating virtual environment at ${VENV_DIR}..."
+echo "[2/7] Creating virtual environment at ${VENV_DIR}..."
 "${PYTHON_BIN}" -m venv "${VENV_DIR}"
 # shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"
 
-echo "[3/8] Upgrading packaging tools..."
+echo "[3/7] Upgrading packaging tools..."
 python -m pip install --upgrade pip setuptools wheel
 
-echo "[4/8] Installing PyTorch GPU wheel..."
+echo "[4/7] Installing PyTorch GPU wheel..."
 if [[ "${INSTALL_GPU_TORCH}" == "true" ]]; then
   python -m pip install --upgrade torch torchvision torchaudio --index-url "${PYTORCH_CUDA_INDEX_URL}"
 else
   echo "Skipping explicit GPU PyTorch install because INSTALL_GPU_TORCH=${INSTALL_GPU_TORCH}."
 fi
 
-echo "[5/8] Installing existing fraud ML dependencies..."
+echo "[5/7] Installing all project dependencies from single requirements.txt..."
 python -m pip install -r requirements.txt
 
-echo "[6/8] Installing LLM fine-tuning dependencies..."
-python -m pip install -r requirements-llm.txt
-
-echo "[7/8] Creating model, dataset, artifact, and log directories..."
+echo "[6/7] Creating model, dataset, artifact, and log directories..."
 mkdir -p \
   "${DEFAULT_LLM_SFT_DATASET_DIR}" \
   "${DEFAULT_LLM_DPO_DATASET_DIR}" \
@@ -210,7 +203,7 @@ mkdir -p \
 
 echo "Created/updated .env with concrete defaults for all setup/start/LLM properties."
 
-echo "[8/8] Verifying GPU availability..."
+echo "[7/7] Verifying GPU availability..."
 if command -v nvidia-smi >/dev/null 2>&1; then
   nvidia-smi || true
 else

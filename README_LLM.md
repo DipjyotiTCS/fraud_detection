@@ -22,15 +22,17 @@ Open:
 http://localhost:8000/docs
 ```
 
-## Hugging Face token
+## Hugging Face token and environment defaults
 
-For gated/private models or higher rate limits:
+`local_setup.sh` creates/updates `.env` automatically with all required defaults, including `HF_TOKEN`. You do not need to manually edit `.env` on the Linux instance.
+
+All Python dependencies are now installed from the single main file:
 
 ```bash
-export HF_TOKEN="hf_xxx"
+pip install -r requirements.txt
 ```
 
-You can add it to `.env` as well.
+`requirements-llm.txt` is no longer used.
 
 ## API flow
 
@@ -63,44 +65,16 @@ Put `.jsonl` or `.json` files inside:
 data/llm/sft/
 ```
 
-The loader searches this folder recursively. You can either place files directly in `data/llm/sft/` or unzip a folder inside it, for example:
-
-```text
-data/llm/sft/sft_test_dataset/train.jsonl
-data/llm/sft/sft_test_dataset/val.jsonl
-```
-
 Supported SFT formats:
 
 ```json
-{"text":"<s>[INST] user prompt [/INST] assistant answer</s>"}
-```
-
-```json
-{"messages":[{"role":"system","content":"..."},{"role":"user","content":"..."},{"role":"assistant","content":"..."}]}
+{"messages":[{"role":"user","content":"..."},{"role":"assistant","content":"..."}]}
 ```
 
 or:
 
 ```json
 {"instruction":"Generate a fraud risk report", "input":"{...classification output...}", "output":"Risk report..."}
-```
-
-If a row contains both `text` and `messages`, the loader uses `text` first so exported Mistral-formatted datasets keep their original chat template. Extra metadata columns such as `task` and `typology` are allowed and are used for split summaries.
-
-Automatic split behavior:
-
-- If `train.jsonl`, `val.jsonl`/`validation.jsonl`, or `test.jsonl` files exist, the loader respects those split names.
-- If no explicit split files exist, it creates train/validation/test automatically using `LLM_VALIDATION_RATIO` and `LLM_TEST_RATIO`.
-- If train and validation exist but test is missing, it keeps validation and creates test from the training file.
-- Default split ratios are `LLM_VALIDATION_RATIO=0.1` and `LLM_TEST_RATIO=0.1`.
-
-Validate the SFT dataset before training:
-
-```bash
-curl -X POST "http://localhost:8000/api/llm/datasets/inspect" \
-  -H "Content-Type: application/json" \
-  -d '{"dataset_type":"sft"}'
 ```
 
 ### 3. Add DPO data
@@ -143,8 +117,6 @@ curl -X POST "http://localhost:8000/api/llm/finetune" \
     "max_seq_length": 2048,
     "sft_epochs": 2,
     "dpo_epochs": 1,
-    "validation_ratio": 0.1,
-    "test_ratio": 0.1,
     "per_device_train_batch_size": 1,
     "gradient_accumulation_steps": 8,
     "async_mode": true

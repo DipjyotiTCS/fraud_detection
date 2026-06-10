@@ -19,7 +19,6 @@ from app.api_models import (
     GraphDatasetGenerateRequest,
     HybridPipelineRequest,
     InferGNNRequest,
-    LLMDatasetInspectRequest,
     RiskReportInferenceRequest,
     ScoreRequest,
     TrainGNNRequest,
@@ -32,7 +31,6 @@ from fraud_ml.gnn.graph_trainer import GNNTrainConfig, GNNTrainingService
 from fraud_ml.llm.finetune import LLMFineTuneConfig, LLMFineTuningService
 from fraud_ml.llm.inference import RiskReportInferenceConfig, RiskReportInferenceService
 from fraud_ml.llm.model_download import LLMDownloadConfig, LLMModelDownloader
-from fraud_ml.llm.dataset_utils import inspect_dataset_folder
 from fraud_ml.xgboost.dataset_builder import DatasetBuildConfig, XGBoostDatasetBuilder
 from fraud_ml.xgboost.inference import XGBoostInferenceService
 from fraud_ml.xgboost.trainer import XGBoostTrainingService
@@ -343,23 +341,6 @@ def download_llm_base_model(request: DownloadLLMBaseModelRequest, background_tas
         raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
 
 
-@app.post("/api/llm/datasets/inspect")
-def inspect_llm_dataset(request: LLMDatasetInspectRequest) -> Dict[str, Any]:
-    """Validate SFT/DPO dataset schema and show the automatic train/validation/test split."""
-    try:
-        result = inspect_dataset_folder(
-            _resolve_path(request.dataset_dir),
-            dataset_type=request.dataset_type,
-            validation_ratio=request.validation_ratio,
-            test_ratio=request.test_ratio,
-            seed=request.seed,
-        )
-        return {"status": "completed", "result": result}
-    except Exception as exc:
-        logger.exception("LLM dataset inspection failed")
-        raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
-
-
 @app.post("/api/llm/finetune")
 def fine_tune_llm(request: FineTuneLLMRequest, background_tasks: BackgroundTasks) -> Dict[str, Any]:
     """Fine-tune the downloaded Mistral model using SFT data and optional DPO preference data."""
@@ -382,8 +363,6 @@ def fine_tune_llm(request: FineTuneLLMRequest, background_tasks: BackgroundTasks
         save_steps=request.save_steps,
         save_total_limit=request.save_total_limit,
         seed=request.seed,
-        validation_ratio=request.validation_ratio,
-        test_ratio=request.test_ratio,
         lora_r=request.lora_r,
         lora_alpha=request.lora_alpha,
         lora_dropout=request.lora_dropout,

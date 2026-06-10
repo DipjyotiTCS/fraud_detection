@@ -29,7 +29,7 @@ class LLMModelDownloader:
             from huggingface_hub import snapshot_download
         except ImportError as exc:  # pragma: no cover - environment guard
             raise RuntimeError(
-                "huggingface_hub is not installed. Run local_setup.sh or install requirements-llm.txt."
+                "huggingface_hub is not installed. Run local_setup.sh or install requirements.txt."
             ) from exc
 
         output_path = Path(self.config.output_dir).expanduser().resolve()

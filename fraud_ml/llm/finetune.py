@@ -7,11 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-from fraud_ml.llm.dataset_utils import (
-    dataset_folder_has_supported_files,
-    load_dpo_dataset_splits,
-    load_sft_dataset_splits,
-)
+from fraud_ml.llm.dataset_utils import load_dpo_dataset, load_sft_dataset
 
 
 @dataclass
@@ -34,8 +30,6 @@ class LLMFineTuneConfig:
     save_steps: int = 100
     save_total_limit: int = 2
     seed: int = 42
-    validation_ratio: float = 0.1
-    test_ratio: float = 0.1
     lora_r: int = 16
     lora_alpha: int = 32
     lora_dropout: float = 0.05
@@ -71,17 +65,11 @@ class LLMFineTuningService:
             result["final_adapter_dir"] = str(self.sft_adapter_dir)
 
         if self.config.run_dpo:
-            if not dataset_folder_has_supported_files(self.config.dpo_dataset_dir):
-                result["dpo"] = {
-                    "status": "skipped",
-                    "reason": f"No DPO .jsonl/.json files found in {self.config.dpo_dataset_dir}.",
-                }
-            else:
-                if self.config.run_sft and not self.sft_adapter_dir.exists():
-                    raise FileNotFoundError(f"SFT adapter not found for DPO: {self.sft_adapter_dir}")
-                result["dpo"] = self._run_dpo()
-                result["dpo_adapter_dir"] = str(self.dpo_adapter_dir)
-                result["final_adapter_dir"] = str(self.dpo_adapter_dir)
+            if not self.sft_adapter_dir.exists() and self.config.run_sft:
+                raise FileNotFoundError(f"SFT adapter not found for DPO: {self.sft_adapter_dir}")
+            result["dpo"] = self._run_dpo()
+            result["dpo_adapter_dir"] = str(self.dpo_adapter_dir)
+            result["final_adapter_dir"] = str(self.dpo_adapter_dir)
 
         result["completed_at_utc"] = datetime.now(timezone.utc).isoformat()
         (self.output_dir / "training_result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
@@ -143,22 +131,14 @@ class LLMFineTuningService:
 
     def _run_sft(self) -> dict:
         import torch
-        from peft import prepare_model_for_kbit_training
         from transformers import AutoModelForCausalLM
+        from peft import prepare_model_for_kbit_training
         from trl import SFTConfig, SFTTrainer
 
         base_path = str(Path(self.config.base_model_path).expanduser().resolve())
         tokenizer = self._load_tokenizer(base_path)
-        dataset_bundle = load_sft_dataset_splits(
-            self.config.sft_dataset_dir,
-            validation_ratio=self.config.validation_ratio,
-            test_ratio=self.config.test_ratio,
-            seed=self.config.seed,
-        )
+        dataset = load_sft_dataset(self.config.sft_dataset_dir)
         self.sft_output_dir.mkdir(parents=True, exist_ok=True)
-        (self.sft_output_dir / "dataset_split_summary.json").write_text(
-            json.dumps(dataset_bundle.summary, indent=2), encoding="utf-8"
-        )
 
         model_kwargs = {
             "device_map": "auto",
@@ -195,32 +175,20 @@ class LLMFineTuningService:
         trainer = SFTTrainer(
             model=model,
             args=args,
-            train_dataset=dataset_bundle.train_dataset,
-            eval_dataset=dataset_bundle.validation_dataset if len(dataset_bundle.validation_dataset) else None,
+            train_dataset=dataset,
             processing_class=tokenizer,
             peft_config=self._lora_config(),
         )
         train_output = trainer.train(resume_from_checkpoint=self.config.resume_from_checkpoint)
-        eval_metrics = self._safe_evaluate(trainer, "eval") if len(dataset_bundle.validation_dataset) else {}
-        test_metrics = (
-            self._safe_evaluate(trainer, "test", dataset_bundle.test_dataset)
-            if len(dataset_bundle.test_dataset)
-            else {}
-        )
         trainer.save_model(str(self.sft_adapter_dir))
         tokenizer.save_pretrained(str(self.sft_adapter_dir))
 
-        metrics = {
-            "train": dict(train_output.metrics or {}),
-            "validation": eval_metrics,
-            "test": test_metrics,
-        }
+        metrics = dict(train_output.metrics or {})
         (self.sft_output_dir / "sft_metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
         self._cleanup(model, trainer)
         return {
             "status": "completed",
-            "records": dataset_bundle.summary["split_counts"],
-            "dataset_summary": dataset_bundle.summary,
+            "records": len(dataset),
             "adapter_dir": str(self.sft_adapter_dir),
             "metrics": metrics,
         }
@@ -232,16 +200,8 @@ class LLMFineTuningService:
 
         tokenizer_source = str(self.sft_adapter_dir if self.sft_adapter_dir.exists() else Path(self.config.base_model_path))
         tokenizer = self._load_tokenizer(tokenizer_source)
-        dataset_bundle = load_dpo_dataset_splits(
-            self.config.dpo_dataset_dir,
-            validation_ratio=self.config.validation_ratio,
-            test_ratio=self.config.test_ratio,
-            seed=self.config.seed,
-        )
+        dataset = load_dpo_dataset(self.config.dpo_dataset_dir)
         self.dpo_output_dir.mkdir(parents=True, exist_ok=True)
-        (self.dpo_output_dir / "dataset_split_summary.json").write_text(
-            json.dumps(dataset_bundle.summary, indent=2), encoding="utf-8"
-        )
 
         model_kwargs = {
             "is_trainable": True,
@@ -277,42 +237,22 @@ class LLMFineTuningService:
         trainer = DPOTrainer(
             model=model,
             args=args,
-            train_dataset=dataset_bundle.train_dataset,
-            eval_dataset=dataset_bundle.validation_dataset if len(dataset_bundle.validation_dataset) else None,
+            train_dataset=dataset,
             processing_class=tokenizer,
         )
         train_output = trainer.train(resume_from_checkpoint=self.config.resume_from_checkpoint)
-        eval_metrics = self._safe_evaluate(trainer, "eval") if len(dataset_bundle.validation_dataset) else {}
-        test_metrics = (
-            self._safe_evaluate(trainer, "test", dataset_bundle.test_dataset)
-            if len(dataset_bundle.test_dataset)
-            else {}
-        )
         trainer.save_model(str(self.dpo_adapter_dir))
         tokenizer.save_pretrained(str(self.dpo_adapter_dir))
 
-        metrics = {
-            "train": dict(train_output.metrics or {}),
-            "validation": eval_metrics,
-            "test": test_metrics,
-        }
+        metrics = dict(train_output.metrics or {})
         (self.dpo_output_dir / "dpo_metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
         self._cleanup(model, trainer)
         return {
             "status": "completed",
-            "records": dataset_bundle.summary["split_counts"],
-            "dataset_summary": dataset_bundle.summary,
+            "records": len(dataset),
             "adapter_dir": str(self.dpo_adapter_dir),
             "metrics": metrics,
         }
-
-    @staticmethod
-    def _safe_evaluate(trainer, metric_key_prefix: str, eval_dataset=None) -> dict:
-        try:
-            metrics = trainer.evaluate(eval_dataset=eval_dataset, metric_key_prefix=metric_key_prefix)
-            return dict(metrics or {})
-        except Exception as exc:
-            return {"status": "evaluation_failed", "error": str(exc)}
 
     @staticmethod
     def _cleanup(model=None, trainer=None) -> None:
