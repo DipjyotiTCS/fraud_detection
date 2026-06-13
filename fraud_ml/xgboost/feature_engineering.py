@@ -297,7 +297,25 @@ class XGBoostFeatureEngineer:
 
     @classmethod
     def load(cls, artifact_dir: str) -> "XGBoostFeatureEngineer":
-        return joblib.load(Path(artifact_dir) / "feature_engineer.pkl")
+        path = Path(artifact_dir) / "feature_engineer.pkl"
+        try:
+            engineer = joblib.load(path)
+        except Exception as exc:
+            # Some artifacts are created on Windows and contain a pickled
+            # pathlib.WindowsPath. Loading that pickle on Linux raises an
+            # UnsupportedOperation error before inference can run. Retry with
+            # a temporary pathlib alias so the same artifacts remain portable.
+            if "WindowsPath" not in str(exc) and "cannot instantiate" not in str(exc):
+                raise
+            import pathlib
+            original_windows_path = pathlib.WindowsPath
+            try:
+                pathlib.WindowsPath = pathlib.PosixPath
+                engineer = joblib.load(path)
+            finally:
+                pathlib.WindowsPath = original_windows_path
+        engineer.artifact_dir = Path(artifact_dir)
+        return engineer
 
 
 # ─────────────────────────────────────────────────────────────────────────────
