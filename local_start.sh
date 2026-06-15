@@ -21,7 +21,7 @@ fi
 
 VENV_DIR="${VENV_DIR:-${PROJECT_ROOT}/.venv}"
 HOST="${HOST:-0.0.0.0}"
-PORT="${PORT:-8000}"
+PORT="${PORT:-8080}"
 RELOAD="${RELOAD:-true}"
 
 if [[ ! -d "${VENV_DIR}" ]]; then
