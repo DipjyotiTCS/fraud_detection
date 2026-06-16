@@ -15,7 +15,7 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ---- Setup/runtime defaults -------------------------------------------------
-DEFAULT_HF_TOKEN="${DEFAULT_HF_TOKEN:-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}"
+DEFAULT_HF_TOKEN="${DEFAULT_HF_TOKEN:-}"
 DEFAULT_VENV_DIR="${DEFAULT_VENV_DIR:-${PROJECT_ROOT}/.venv}"
 DEFAULT_PYTHON_BIN="${DEFAULT_PYTHON_BIN:-python3}"
 DEFAULT_INSTALL_GPU_TORCH="${DEFAULT_INSTALL_GPU_TORCH:-true}"
@@ -58,10 +58,15 @@ DEFAULT_LLM_LORA_DROPOUT="${DEFAULT_LLM_LORA_DROPOUT:-0.05}"
 DEFAULT_LLM_LORA_TARGET_MODULES="${DEFAULT_LLM_LORA_TARGET_MODULES:-q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj}"
 
 # ---- Inference defaults -----------------------------------------------------
-DEFAULT_LLM_MAX_NEW_TOKENS="${DEFAULT_LLM_MAX_NEW_TOKENS:-700}"
-DEFAULT_LLM_TEMPERATURE="${DEFAULT_LLM_TEMPERATURE:-0.2}"
+DEFAULT_LLM_MAX_NEW_TOKENS="${DEFAULT_LLM_MAX_NEW_TOKENS:-2048}"
+DEFAULT_LLM_TEMPERATURE="${DEFAULT_LLM_TEMPERATURE:-0.0}"
 DEFAULT_LLM_TOP_P="${DEFAULT_LLM_TOP_P:-0.9}"
 DEFAULT_LLM_ASYNC_MODE="${DEFAULT_LLM_ASYNC_MODE:-true}"
+DEFAULT_LLM_MAX_INPUT_TOKENS="${DEFAULT_LLM_MAX_INPUT_TOKENS:-8192}"
+DEFAULT_LLM_RUNTIME_BASE_MODEL="${DEFAULT_LLM_RUNTIME_BASE_MODEL:-${DEFAULT_LLM_MODEL_ID}}"
+DEFAULT_LLM_RUNTIME_ADAPTER_PATH="${DEFAULT_LLM_RUNTIME_ADAPTER_PATH:-/workspace/shared/mistral_dpo_v3}"
+DEFAULT_LLM_RUNTIME_USE_4BIT="${DEFAULT_LLM_RUNTIME_USE_4BIT:-false}"
+DEFAULT_LLM_RUNTIME_TORCH_DTYPE="${DEFAULT_LLM_RUNTIME_TORCH_DTYPE:-bfloat16}"
 
 cd "${PROJECT_ROOT}"
 
@@ -164,6 +169,11 @@ upsert_env_property "LLM_MAX_NEW_TOKENS" "$(value_or_default "${LLM_MAX_NEW_TOKE
 upsert_env_property "LLM_TEMPERATURE" "$(value_or_default "${LLM_TEMPERATURE:-}" "${DEFAULT_LLM_TEMPERATURE}")" ".env"
 upsert_env_property "LLM_TOP_P" "$(value_or_default "${LLM_TOP_P:-}" "${DEFAULT_LLM_TOP_P}")" ".env"
 upsert_env_property "LLM_ASYNC_MODE" "$(value_or_default "${LLM_ASYNC_MODE:-}" "${DEFAULT_LLM_ASYNC_MODE}")" ".env"
+upsert_env_property "LLM_MAX_INPUT_TOKENS" "$(value_or_default "${LLM_MAX_INPUT_TOKENS:-}" "${DEFAULT_LLM_MAX_INPUT_TOKENS}")" ".env"
+upsert_env_property "LLM_RUNTIME_BASE_MODEL" "$(value_or_default "${LLM_RUNTIME_BASE_MODEL:-}" "${DEFAULT_LLM_RUNTIME_BASE_MODEL}")" ".env"
+upsert_env_property "LLM_RUNTIME_ADAPTER_PATH" "$(value_or_default "${LLM_RUNTIME_ADAPTER_PATH:-}" "${DEFAULT_LLM_RUNTIME_ADAPTER_PATH}")" ".env"
+upsert_env_property "LLM_RUNTIME_USE_4BIT" "$(value_or_default "${LLM_RUNTIME_USE_4BIT:-}" "${DEFAULT_LLM_RUNTIME_USE_4BIT}")" ".env"
+upsert_env_property "LLM_RUNTIME_TORCH_DTYPE" "$(value_or_default "${LLM_RUNTIME_TORCH_DTYPE:-}" "${DEFAULT_LLM_RUNTIME_TORCH_DTYPE}")" ".env"
 chmod 600 .env || true
 
 echo "[1/7] Checking Linux packages..."

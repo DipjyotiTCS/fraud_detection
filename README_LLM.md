@@ -141,34 +141,89 @@ If DPO is disabled, use:
 artifacts/llm/finetuned/risk-report-mistral-7b/sft/final_adapter
 ```
 
-### 5. Generate a risk report
+### 5. Load the notebook-aligned inference model once
+
+The notebook loads:
+
+```python
+BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
+LORA_PATH = "/workspace/shared/mistral_dpo_v3"
+torch_dtype = torch.bfloat16
+```
+
+The API defaults now match that setup. You can load the hosted runtime explicitly:
 
 ```bash
-curl -X POST "http://localhost:8000/api/llm/infer-risk-report" \
+curl -X POST "http://localhost:8000/api/llm/load-inference-model" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "base_model_path": "mistralai/Mistral-7B-Instruct-v0.3",
+    "adapter_path": "/workspace/shared/mistral_dpo_v3",
+    "use_4bit": false,
+    "torch_dtype": "bfloat16"
+  }'
+```
+
+Check status:
+
+```bash
+curl "http://localhost:8000/api/llm/inference-status"
+```
+
+### 6. Generate a notebook-aligned JSON fraud report
+
+The API accepts either `classification_result` or the notebook's exact `xgboost_score_response` field name. The prompt sent to the LLM uses the same DPO-style input as the notebook:
+
+```json
+{
+  "task": "generate_fraud_investigation_outputs",
+  "transaction": {},
+  "xgboost_score_response": {},
+  "operator_note": "Use only supplied transaction, model outputs, graph findings, feature contributions and risk factors. Do not invent facts, historical cases, customer information, regulatory citations or unsupported typologies."
+}
+```
+
+Example call after `/api/xgboost/score`:
+
+```bash
+curl -X POST "http://localhost:8000/api/llm/infer-fraud-report" \
   -H "Content-Type: application/json" \
   -d '{
     "transaction": {
-      "transaction_id": "TXN-1001",
-      "amount": 9550,
-      "merchant_category": "electronics",
-      "country": "IN",
-      "account_id": "A-991"
+      "transaction_id": "test-txn-031",
+      "account_id_hash": "test-account-001",
+      "beneficiary_id_hash": "test-beneficiary-201",
+      "amount_inr": 958000,
+      "amount_usd_equiv": 11445,
+      "channel": "UPI",
+      "merchant_category_code": "6012",
+      "is_international": false,
+      "currency": "INR"
     },
-    "classification_result": {
-      "probability": 0.91,
-      "risk_score": 91,
+    "xgboost_score_response": {
+      "probability": 1.0,
+      "probability_percentage": 100.0,
+      "risk_score": 100,
       "is_fraud": true,
-      "gnn_account_risk_score": 0.86,
-      "xgboost_probability": 0.91
+      "classification_threshold": 0.5,
+      "gnn_findings": {
+        "shared_device_accounts": 10,
+        "shared_ip_accounts": 20,
+        "beneficiary_sar_count": 1,
+        "second_hop_sar_count": 3,
+        "mule_network_probability": 0.78,
+        "synthetic_identity_score": 0.42,
+        "rapid_fan_out_flag": true,
+        "originator_graph_centrality": 0.55
+      }
     },
-    "customer_context": {
-      "customer_tenure_days": 42,
-      "prior_chargebacks": 1
-    },
-    "adapter_path": "artifacts/llm/finetuned/risk-report-mistral-7b/dpo/final_adapter",
-    "base_model_path": "artifacts/llm/base/mistral-7b-instruct-v0.3"
+    "max_new_tokens": 2048,
+    "temperature": 0.0,
+    "torch_dtype": "bfloat16"
   }'
 ```
+
+`/api/llm/infer-risk-report` is still available as a backward-compatible alias. React should prefer `/api/llm/infer-fraud-report` and render `parsed_report`.
 
 ## Important first-time fine-tuning checklist
 

@@ -19,6 +19,7 @@ from app.api_models import (
     GraphDatasetGenerateRequest,
     HybridPipelineRequest,
     InferGNNRequest,
+    LoadLLMInferenceModelRequest,
     RiskReportInferenceRequest,
     ScoreRequest,
     TrainGNNRequest,
@@ -61,6 +62,30 @@ def _resolve_path(path_value: str) -> str:
     if path.is_absolute():
         return str(path)
     return str(APP_ROOT / path)
+
+
+def _resolve_model_reference(value: str) -> str:
+    """Resolve local artifact paths while leaving Hugging Face model IDs untouched."""
+    if not value:
+        return value
+
+    value = str(value)
+    path = Path(value).expanduser()
+
+    if path.is_absolute():
+        return str(path)
+
+    # Known local project folders should be resolved relative to FRAUD_ML_HOME even
+    # when the folder is not present yet. Everything else can remain a HF repo ID,
+    # for example mistralai/Mistral-7B-Instruct-v0.3.
+    if value.startswith(("artifacts/", "data/", "./", "../")):
+        return str((APP_ROOT / value).resolve())
+
+    candidate = APP_ROOT / value
+    if candidate.exists():
+        return str(candidate.resolve())
+
+    return value
 
 
 def _new_job(job_type: str) -> str:
@@ -382,26 +407,70 @@ def fine_tune_llm(request: FineTuneLLMRequest, background_tasks: BackgroundTasks
         raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
 
 
-@app.post("/api/llm/infer-risk-report")
-def infer_risk_report(request: RiskReportInferenceRequest) -> Dict[str, Any]:
-    """Generate a risk assessment report from GNN+XGBoost classification output."""
+@app.post("/api/llm/load-inference-model")
+def load_llm_inference_model(request: LoadLLMInferenceModelRequest) -> Dict[str, Any]:
+    """Load and cache the base model plus fine-tuned LoRA adapter for local inference."""
     config = RiskReportInferenceConfig(
-        base_model_path=_resolve_path(request.base_model_path),
-        adapter_path=_resolve_path(request.adapter_path),
+        base_model_path=_resolve_model_reference(request.base_model_path),
+        adapter_path=_resolve_model_reference(request.adapter_path),
+        use_4bit=request.use_4bit,
+        torch_dtype=request.torch_dtype,
+    )
+    try:
+        return RiskReportInferenceService(config).load_model()
+    except Exception as exc:
+        logger.exception("LLM inference model load failed")
+        raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
+
+
+@app.get("/api/llm/inference-status")
+def llm_inference_status() -> Dict[str, Any]:
+    """Return whether the hosted LLM runtime is loaded and which adapter is active."""
+    return RiskReportInferenceService.status()
+
+
+@app.post("/api/llm/unload-inference-model")
+def unload_llm_inference_model() -> Dict[str, Any]:
+    """Unload the hosted LLM runtime and free GPU memory."""
+    return RiskReportInferenceService.unload()
+
+
+def _infer_risk_report_impl(request: RiskReportInferenceRequest) -> Dict[str, Any]:
+    config = RiskReportInferenceConfig(
+        base_model_path=_resolve_model_reference(request.base_model_path),
+        adapter_path=_resolve_model_reference(request.adapter_path),
         use_4bit=request.use_4bit,
         max_new_tokens=request.max_new_tokens,
         temperature=request.temperature,
         top_p=request.top_p,
+        torch_dtype=request.torch_dtype,
+        max_input_tokens=request.max_input_tokens,
     )
+    return RiskReportInferenceService(config).generate_report(
+        transaction=request.transaction,
+        classification_result=request.classification_result,
+        customer_context=request.customer_context,
+        report_instruction=request.report_instruction,
+    )
+
+
+@app.post("/api/llm/infer-risk-report")
+def infer_risk_report(request: RiskReportInferenceRequest) -> Dict[str, Any]:
+    """Generate a JSON fraud report from GNN+XGBoost output using the hosted local LLM."""
     try:
-        return RiskReportInferenceService(config).generate_report(
-            transaction=request.transaction,
-            classification_result=request.classification_result,
-            customer_context=request.customer_context,
-            report_instruction=request.report_instruction,
-        )
+        return _infer_risk_report_impl(request)
     except Exception as exc:
         logger.exception("LLM risk report inference failed")
+        raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
+
+
+@app.post("/api/llm/infer-fraud-report")
+def infer_fraud_report(request: RiskReportInferenceRequest) -> Dict[str, Any]:
+    """Frontend-friendly alias for /api/llm/infer-risk-report."""
+    try:
+        return _infer_risk_report_impl(request)
+    except Exception as exc:
+        logger.exception("LLM fraud report inference failed")
         raise HTTPException(status_code=500, detail={"message": str(exc), "traceback": traceback.format_exc()})
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from typing import Any, Dict, List, Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 def _env_str(name: str, default: str) -> str:
@@ -178,14 +178,47 @@ class FineTuneLLMRequest(BaseModel):
     async_mode: bool = Field(default_factory=lambda: _env_bool("LLM_ASYNC_MODE", True))
 
 
+class LoadLLMInferenceModelRequest(BaseModel):
+    base_model_path: str = Field(
+        default_factory=lambda: _env_str("LLM_RUNTIME_BASE_MODEL", _env_str("LLM_DEFAULT_MODEL_ID", "mistralai/Mistral-7B-Instruct-v0.3")),
+        description="Hugging Face model ID or local path to the base model.",
+    )
+    adapter_path: str = Field(
+        default_factory=lambda: _env_str("LLM_RUNTIME_ADAPTER_PATH", _env_str("LLM_FINAL_ADAPTER_DIR", "/workspace/shared/mistral_dpo_v3")),
+        description="Local path to the fine-tuned LoRA adapter.",
+    )
+    use_4bit: bool = Field(
+        default_factory=lambda: _env_bool("LLM_RUNTIME_USE_4BIT", False),
+        description="Keep false for AMD ROCm unless bitsandbytes is known to work in your environment.",
+    )
+    torch_dtype: str = Field(
+        default_factory=lambda: _env_str("LLM_RUNTIME_TORCH_DTYPE", "bfloat16"),
+        description="bfloat16, float16, float32, or auto. Defaults to bfloat16 to match the notebook inference command.",
+    )
+
+
 class RiskReportInferenceRequest(BaseModel):
     transaction: Dict[str, Any]
-    classification_result: Dict[str, Any]
+    classification_result: Dict[str, Any] = Field(
+        validation_alias=AliasChoices("classification_result", "xgboost_score_response"),
+        description="The XGBoost/GNN score object. Accepts either classification_result or xgboost_score_response; it is sent to the LLM as xgboost_score_response."
+    )
     customer_context: Optional[Dict[str, Any]] = None
     report_instruction: Optional[str] = None
-    base_model_path: str = Field(default_factory=lambda: _env_str("LLM_BASE_MODEL_PATH", "artifacts/llm/base/mistral-7b-instruct-v0.3"))
-    adapter_path: str = Field(default_factory=lambda: _env_str("LLM_FINAL_ADAPTER_DIR", "artifacts/llm/finetuned/risk-report-mistral-7b/dpo/final_adapter"))
-    use_4bit: bool = Field(default_factory=lambda: _env_bool("LLM_USE_4BIT", True))
-    max_new_tokens: int = Field(default_factory=lambda: _env_int("LLM_MAX_NEW_TOKENS", 700), ge=64, le=4096)
-    temperature: float = Field(default_factory=lambda: _env_float("LLM_TEMPERATURE", 0.2), ge=0, le=2)
+    base_model_path: str = Field(
+        default_factory=lambda: _env_str("LLM_RUNTIME_BASE_MODEL", _env_str("LLM_DEFAULT_MODEL_ID", "mistralai/Mistral-7B-Instruct-v0.3")),
+        description="Hugging Face model ID or local path to the base model.",
+    )
+    adapter_path: str = Field(
+        default_factory=lambda: _env_str("LLM_RUNTIME_ADAPTER_PATH", _env_str("LLM_FINAL_ADAPTER_DIR", "/workspace/shared/mistral_dpo_v3")),
+        description="Local path to the fine-tuned LoRA adapter.",
+    )
+    use_4bit: bool = Field(
+        default_factory=lambda: _env_bool("LLM_RUNTIME_USE_4BIT", False),
+        description="Keep false for AMD ROCm unless bitsandbytes is known to work in your environment.",
+    )
+    torch_dtype: str = Field(default_factory=lambda: _env_str("LLM_RUNTIME_TORCH_DTYPE", "bfloat16"))
+    max_new_tokens: int = Field(default_factory=lambda: _env_int("LLM_MAX_NEW_TOKENS", 2048), ge=64, le=4096)
+    temperature: float = Field(default_factory=lambda: _env_float("LLM_TEMPERATURE", 0.0), ge=0, le=2)
     top_p: float = Field(default_factory=lambda: _env_float("LLM_TOP_P", 0.9), ge=0.01, le=1)
+    max_input_tokens: int = Field(default_factory=lambda: _env_int("LLM_MAX_INPUT_TOKENS", 8192), ge=512, le=32768)
