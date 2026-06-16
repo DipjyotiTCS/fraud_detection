@@ -208,25 +208,22 @@ class RiskReportInferenceService:
         self.unload()
 
         torch_dtype = _resolve_torch_dtype(self.config.torch_dtype)
-        device = _runtime_device()
 
+        # Keep tokenizer loading aligned with the working notebook.
         tokenizer = AutoTokenizer.from_pretrained(
             base_model_path,
-            use_fast=True,
             trust_remote_code=True,
         )
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
 
+        # Keep model loading aligned with the working notebook.
+        # Note: PyTorch exposes AMD ROCm GPUs through the torch.cuda API,
+        # but the important behavior here is device_map="auto" + bf16/fp16,
+        # not falling back to CPU float32.
         model_kwargs: Dict[str, Any] = {
             "trust_remote_code": True,
+            "torch_dtype": torch_dtype,
+            "device_map": "auto",
         }
-
-        if device == "cuda":
-            model_kwargs["device_map"] = "auto"
-            model_kwargs["torch_dtype"] = torch_dtype
-        else:
-            model_kwargs["torch_dtype"] = torch.float32
 
         if self.config.use_4bit:
             try:
@@ -245,8 +242,6 @@ class RiskReportInferenceService:
             )
 
         base_model = AutoModelForCausalLM.from_pretrained(base_model_path, **model_kwargs)
-        if device != "cuda":
-            base_model.to("cpu")
 
         if adapter_path:
             adapter_is_hf_repo = (
@@ -290,25 +285,21 @@ class RiskReportInferenceService:
             add_generation_prompt=True,
         )
 
+        # Keep input tokenization aligned with the working notebook.
         inputs = tokenizer(
             prompt,
             return_tensors="pt",
-            truncation=True,
-            max_length=self.config.max_input_tokens,
-        )
-
-        model_device = next(model.parameters()).device
-        inputs = {key: value.to(model_device) for key, value in inputs.items()}
+        ).to(model.device)
 
         generation_kwargs: Dict[str, Any] = {
             "max_new_tokens": self.config.max_new_tokens,
             "do_sample": self.config.temperature > 0,
+            "temperature": self.config.temperature,
             "pad_token_id": tokenizer.eos_token_id,
             "eos_token_id": tokenizer.eos_token_id,
         }
 
         if self.config.temperature > 0:
-            generation_kwargs["temperature"] = self.config.temperature
             generation_kwargs["top_p"] = self.config.top_p
 
         with torch.no_grad():
